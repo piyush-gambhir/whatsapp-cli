@@ -7,7 +7,12 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
+
+func init() {
+	clock = func() time.Time { return time.Date(2026, 10, 14, 12, 0, 0, 0, time.UTC) }
+}
 
 type seen struct {
 	path, query, auth string
@@ -74,9 +79,23 @@ func TestAnalyticsExpressions(t *testing.T) {
 		!strings.Contains(errOut, "HALF_HOUR,DAY,MONTH") {
 		t.Fatalf("messages accepted DAILY: %s", errOut)
 	}
-	if code, _, errOut := run(t, srv, "analytics", "conversations", "--from", "2020-01-01", "--to", "2020-01-02"); code == 0 ||
-		!strings.Contains(errOut, "one year") {
-		t.Fatalf("old window accepted: %s", errOut)
+	for _, bad := range [][]string{
+		{"analytics", "pricing", "--from", "2020-01-01", "--to", "2020-01-02"},  // older than a year
+		{"analytics", "pricing", "--from", "2026-12-01"},                        // in the future
+		{"analytics", "pricing", "--from", "1790812800000"},                     // milliseconds
+		{"analytics", "pricing", "--country", "u.s"},                            // not a country code
+		{"analytics", "pricing", "--dimension", "COUNTRY]).metric_types([COST"}, // not a dimension
+		{"analytics", "pricing", "--phone", "1).granularity(HALF_HOUR"},         // not a phone number
+		{"analytics", "conversations"},                                          // gone: no data left
+		{"templates", "list", "--after", "x&access_token=y"},                    // not a cursor
+	} {
+		if code, _, _ := run(t, srv, bad...); code == 0 {
+			t.Errorf("accepted %v", bad)
+		}
+	}
+	run(t, srv, "analytics", "pricing", "--phone", "+91 98765-43210", "--from", "2026-10-01", "--to", "2026-10-02")
+	if q := (*got)[len(*got)-1].query; !strings.Contains(q, `phone_numbers(["919876543210"])`) {
+		t.Fatalf("phone not normalised: %s", q)
 	}
 }
 
@@ -90,6 +109,44 @@ func TestGraphErrorsKeepTheirCode(t *testing.T) {
 	defer func() { osArgs = old }()
 	osArgs = []string{"account", "get"}
 	if code := executeWith(&out, &errOut); code != 3 || !strings.Contains(errOut.String(), "code 190") || strings.Contains(errOut.String(), "secret") {
+		t.Fatalf("%d %s", code, errOut.String())
+	}
+}
+
+func TestPagingKeepsCursorsButNotTokenURLs(t *testing.T) {
+	srv, got := fake(t, 200, `{"data":[{"id":12345678901234567890}],"paging":{"cursors":{"after":"QVFI"},"next":"https://graph.facebook.com/v25.0/x?access_token=EAAG-secret&after=QVFI"}}`)
+	code, out, errOut := run(t, srv, "templates", "list", "--after", "QVFH")
+	if code != 0 || strings.Contains(out, "access_token") || !strings.Contains(out, `"after": "QVFI"`) || !strings.Contains(out, "12345678901234567890") {
+		t.Fatalf("%d %s %s", code, out, errOut)
+	}
+	if !strings.Contains((*got)[0].query, "after=QVFH") {
+		t.Fatalf("cursor not sent: %s", (*got)[0].query)
+	}
+}
+
+func TestOutputAndVersionAreCheckedBeforeAnyRequest(t *testing.T) {
+	srv, got := fake(t, 200, `{}`)
+	if code, _, _ := run(t, srv, "-o", "yaml", "numbers", "list"); code == 0 {
+		t.Fatal("yaml accepted")
+	}
+	t.Setenv("WHATSAPP_API_VERSION", "v19.0")
+	var out, errOut bytes.Buffer
+	root := NewRoot(strings.NewReader(""), &out, &errOut)
+	root.SetArgs([]string{"numbers", "list"})
+	if root.Execute() == nil || len(*got) != 0 {
+		t.Fatal("an old API version reached the API")
+	}
+}
+
+func TestUnreachableAPIHasItsOwnExitCode(t *testing.T) {
+	t.Setenv("WHATSAPP_GRAPH_URL", "http://127.0.0.1:1")
+	t.Setenv("WHATSAPP_ACCESS_TOKEN", "EAAG-secret")
+	t.Setenv("WHATSAPP_BUSINESS_ACCOUNT_ID", "1029")
+	var out, errOut bytes.Buffer
+	old := osArgs
+	defer func() { osArgs = old }()
+	osArgs = []string{"numbers", "list"}
+	if code := executeWith(&out, &errOut); code != 4 || strings.Contains(errOut.String(), "secret") {
 		t.Fatalf("%d %s", code, errOut.String())
 	}
 }
@@ -111,7 +168,8 @@ func TestSettingsAreValidated(t *testing.T) {
 }
 
 func TestCommandsResolve(t *testing.T) {
-	for _, args := range [][]string{{"numbers", "list"}, {"-o", "json", "analytics", "pricing", "--from", "2026-10-01"}, {"phone-numbers", "get", "5"}} {
+	for _, args := range [][]string{{"numbers", "list"}, {"-o", "json", "analytics", "pricing", "--from", "2026-10-01"}, {"phone-numbers", "get", "5"},
+		{"numbers", "list", "--help"}, {"--version"}, {"help", "numbers"}} {
 		var out bytes.Buffer
 		root := NewRoot(strings.NewReader(""), &out, &bytes.Buffer{})
 		root.SetArgs(append([]string{"commands", "resolve", "--"}, args...))
@@ -127,5 +185,10 @@ func TestCommandsResolve(t *testing.T) {
 	root.SetArgs([]string{"commands", "resolve", "--", "messages", "send"})
 	if root.Execute() == nil {
 		t.Fatal("an unknown command resolved")
+	}
+	root = NewRoot(strings.NewReader(""), &bytes.Buffer{}, &bytes.Buffer{})
+	root.SetArgs([]string{"commands", "resolve", "--", "numbers", "get"})
+	if root.Execute() == nil {
+		t.Fatal("a command missing its argument resolved")
 	}
 }

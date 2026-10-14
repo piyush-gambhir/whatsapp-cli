@@ -9,6 +9,18 @@ import (
 	"github.com/spf13/pflag"
 )
 
+// words are the leading non-flag arguments.
+func words(args []string) []string {
+	out := []string{}
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "-") {
+			break
+		}
+		out = append(out, arg)
+	}
+	return out
+}
+
 // resolution follows the agent-cli/v1 contract shared with the other Reckon CLIs.
 type resolution struct {
 	Command     string            `json:"command"`
@@ -35,11 +47,23 @@ func (a *app) commandsCmd() *cobra.Command {
 			}
 			a.format = "json"
 			probe := NewRoot(strings.NewReader(""), io.Discard, io.Discard)
+			// Help, version and completion only print text: reads that touch nothing.
+			for _, arg := range args {
+				if arg == "--help" || arg == "-h" || arg == "--version" {
+					return a.print(resolution{Command: strings.TrimSpace("whatsapp " + strings.Join(words(args), " ")), Effect: "read", Flags: map[string]string{}, Args: []string{}})
+				}
+			}
+			if len(args) > 0 && (args[0] == "help" || args[0] == "completion") {
+				return a.print(resolution{Command: "whatsapp " + args[0], Effect: "read", Flags: map[string]string{}, Args: []string{}})
+			}
 			target, rest, err := probe.Find(args)
 			if err != nil || target == probe || !target.Runnable() {
 				return fmt.Errorf("arguments do not name a runnable whatsapp command")
 			}
 			if err := target.ParseFlags(rest); err != nil {
+				return err
+			}
+			if err := target.ValidateArgs(target.Flags().Args()); err != nil {
 				return err
 			}
 			res := resolution{Command: target.CommandPath(), Effect: "read", Flags: map[string]string{}, Args: target.Flags().Args()}
