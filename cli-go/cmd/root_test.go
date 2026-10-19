@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/piyush-gambhir/whatsapp-cli/cli-go/internal/build"
 )
 
 func init() {
@@ -169,7 +171,7 @@ func TestSettingsAreValidated(t *testing.T) {
 
 func TestCommandsResolve(t *testing.T) {
 	for _, args := range [][]string{{"numbers", "list"}, {"-o", "json", "analytics", "pricing", "--from", "2026-10-01"}, {"phone-numbers", "get", "5"},
-		{"numbers", "list", "--help"}, {"--version"}, {"help", "numbers"}} {
+		{"numbers", "list", "--help"}, {"--version"}, {"version"}, {"help", "numbers"}} {
 		var out bytes.Buffer
 		root := NewRoot(strings.NewReader(""), &out, &bytes.Buffer{})
 		root.SetArgs(append([]string{"commands", "resolve", "--"}, args...))
@@ -190,5 +192,21 @@ func TestCommandsResolve(t *testing.T) {
 	root.SetArgs([]string{"commands", "resolve", "--", "numbers", "get"})
 	if root.Execute() == nil {
 		t.Fatal("a command missing its argument resolved")
+	}
+}
+
+func TestVersionCommandPrintsBuildInfo(t *testing.T) {
+	old := build.Version
+	build.Version = "1.2.3"
+	defer func() { build.Version = old }()
+	var out bytes.Buffer
+	root := NewRoot(strings.NewReader(""), &out, &bytes.Buffer{})
+	root.SetArgs([]string{"version"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]string
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil || got["version"] != "1.2.3" || got["commit"] == "" || got["date"] == "" {
+		t.Fatalf("%v %s", err, out.String())
 	}
 }

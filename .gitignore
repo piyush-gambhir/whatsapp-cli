@@ -1,1 +1,9 @@
-bin/
+/bin/
+/cli-go/bin/
+/cli-go/dist/
+/dist/
+.DS_Store
+.env
+.env.*
+!.env.example
+*.test

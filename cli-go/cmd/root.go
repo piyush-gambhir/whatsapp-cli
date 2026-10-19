@@ -18,11 +18,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/piyush-gambhir/whatsapp-cli/cli-go/internal/build"
 	"github.com/piyush-gambhir/whatsapp-cli/cli-go/internal/graph"
 )
-
-// version is set at build time.
-var version = "dev"
 
 // clock is the current time; tests fix it.
 var clock = time.Now
@@ -72,7 +70,7 @@ func NewRoot(in io.Reader, out, errOut io.Writer) *cobra.Command {
 	root := &cobra.Command{Use: "whatsapp", Short: "Read a WhatsApp Business Account: numbers, templates and analytics",
 		Long: "Read-only access to the WhatsApp Business Management API.\n\nSettings: WHATSAPP_ACCESS_TOKEN (system user token),\n" +
 			"WHATSAPP_BUSINESS_ACCOUNT_ID (the WABA), WHATSAPP_API_VERSION (default " + graph.DefaultVersion + ").",
-		Version: version, SilenceUsage: true, SilenceErrors: true}
+		Version: build.Version, SilenceUsage: true, SilenceErrors: true}
 	root.SetIn(in)
 	root.SetOut(out)
 	root.SetErr(errOut)
@@ -87,6 +85,9 @@ func NewRoot(in io.Reader, out, errOut io.Writer) *cobra.Command {
 		return nil
 	}
 	root.AddCommand(a.accountCmd(), a.numbersCmd(), a.templatesCmd(), a.analyticsCmd(), a.commandsCmd())
+	root.AddCommand(&cobra.Command{Use: "version", Short: "Print build information", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error {
+		return a.print(map[string]any{"version": build.Version, "commit": build.Commit, "date": build.Date})
+	}})
 	// A group given an unknown subcommand is an error, not a help page with exit 0.
 	for _, group := range root.Commands() {
 		if group.HasSubCommands() && group.RunE == nil {
@@ -310,7 +311,7 @@ func (a *app) bounds(w *window) (int64, int64, error) {
 }
 
 func (a *app) analyticsCmd() *cobra.Command {
-	c := &cobra.Command{Use: "analytics", Short: "Messages, conversations and pricing for a time window"}
+	c := &cobra.Command{Use: "analytics", Short: "Messages and pricing for a time window"}
 	type metric struct {
 		use, short, field, granularity, allowed, dims string
 	}

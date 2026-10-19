@@ -6,6 +6,33 @@ through [Reckon](https://github.com/piyush-gambhir/reckon). It reads phone numbe
 message and pricing analytics. It cannot send messages or change
 anything: every request is a `GET` to the Graph API.
 
+## Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/piyush-gambhir/whatsapp-cli/main/install.sh | sh
+```
+
+Installs to `~/.local/bin` by default. Override with `INSTALL_DIR` or pin a release with `VERSION`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/piyush-gambhir/whatsapp-cli/main/install.sh | VERSION=v0.1.0 sh
+```
+
+The installer supports macOS/Linux amd64 and arm64 and verifies SHA-256 checksums. Prebuilt macOS/Linux/Windows archives (`whatsapp-cli_<os>_<arch>.tar.gz`, `.zip` on Windows) and `checksums.txt` are on the [releases page](https://github.com/piyush-gambhir/whatsapp-cli/releases); Windows archives contain `whatsapp.exe`.
+
+From source (Go 1.27+):
+
+```bash
+git clone https://github.com/piyush-gambhir/whatsapp-cli.git
+cd whatsapp-cli
+make build      # cli-go/bin/whatsapp
+make install    # $(go env GOPATH)/bin/whatsapp
+```
+
+`whatsapp version` prints the version, commit and build date as JSON.
+
+## Usage
+
 ```bash
 export WHATSAPP_ACCESS_TOKEN=...            # system user token with whatsapp_business_management
 export WHATSAPP_BUSINESS_ACCOUNT_ID=1029... # the WABA id
@@ -42,6 +69,12 @@ template analytics (Meta requires a one-way opt-in `POST` on the
 account first), and messaging-limit history. Field names follow Meta's documentation
 as of October 2026 and have not yet been run against a live account.
 
+## Agents
+
+The agent skill is [`whatsapp/SKILL.md`](whatsapp/SKILL.md), and every command and flag is in [`docs/commands.md`](docs/commands.md) (generated with `make docs`). `whatsapp commands resolve -- <arguments>` shows offline, without credentials, which command, effect (always `read`) and flags the arguments would run.
+
+## Development
+
 ```bash
-make test vet build   # ./bin/whatsapp
+make test vet build   # cli-go/bin/whatsapp
 ```
