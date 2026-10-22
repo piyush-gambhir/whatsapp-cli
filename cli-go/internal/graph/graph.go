@@ -71,11 +71,14 @@ func (c *Client) Get(ctx context.Context, path string, query url.Values) (json.R
 		return nil, err
 	}
 	defer resp.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, (32<<20)+1))
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode >= 400 {
+	if len(body) > 32<<20 {
+		return nil, fmt.Errorf("graph API response exceeds 32 MiB")
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		var envelope struct {
 			Error *Error `json:"error"`
 		}
