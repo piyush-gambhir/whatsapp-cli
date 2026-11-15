@@ -20,7 +20,6 @@ type seen struct {
 	path, query, auth string
 }
 
-// fake answers like the Graph API and records each request.
 func fake(t *testing.T, status int, body string) (*httptest.Server, *[]seen) {
 	var got []seen
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -82,14 +81,14 @@ func TestAnalyticsExpressions(t *testing.T) {
 		t.Fatalf("messages accepted DAILY: %s", errOut)
 	}
 	for _, bad := range [][]string{
-		{"analytics", "pricing", "--from", "2020-01-01", "--to", "2020-01-02"},  // older than a year
-		{"analytics", "pricing", "--from", "2026-12-01"},                        // in the future
-		{"analytics", "pricing", "--from", "1790812800000"},                     // milliseconds
-		{"analytics", "pricing", "--country", "u.s"},                            // not a country code
-		{"analytics", "pricing", "--dimension", "COUNTRY]).metric_types([COST"}, // not a dimension
-		{"analytics", "pricing", "--phone", "1).granularity(HALF_HOUR"},         // not a phone number
-		{"analytics", "conversations"},                                          // gone: no data left
-		{"templates", "list", "--after", "x&access_token=y"},                    // not a cursor
+		{"analytics", "pricing", "--from", "2020-01-01", "--to", "2020-01-02"},
+		{"analytics", "pricing", "--from", "2026-12-01"},
+		{"analytics", "pricing", "--from", "1790812800000"},
+		{"analytics", "pricing", "--country", "u.s"},
+		{"analytics", "pricing", "--dimension", "COUNTRY]).metric_types([COST"},
+		{"analytics", "pricing", "--phone", "1).granularity(HALF_HOUR"},
+		{"analytics", "conversations"},
+		{"templates", "list", "--after", "x&access_token=y"},
 	} {
 		if code, _, _ := run(t, srv, bad...); code == 0 {
 			t.Errorf("accepted %v", bad)

@@ -10,7 +10,6 @@ import (
 
 func TestGetRejectsOversizedJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// A valid JSON prefix must not hide bytes beyond the response limit.
 		_, _ = w.Write([]byte(`{}` + strings.Repeat(" ", 32<<20)))
 	}))
 	defer server.Close()

@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// words are the leading non-flag arguments.
 func words(args []string) []string {
 	out := []string{}
 	for _, arg := range args {
@@ -21,10 +20,9 @@ func words(args []string) []string {
 	return out
 }
 
-// resolution follows the agent-cli/v1 contract shared with the other Reckon CLIs.
 type resolution struct {
 	Command     string            `json:"command"`
-	Effect      string            `json:"effect"` // always read: this CLI has no writes
+	Effect      string            `json:"effect"`
 	Conditional bool              `json:"conditional"`
 	Interactive bool              `json:"interactive"`
 	Secret      bool              `json:"secret_output"`
@@ -32,8 +30,6 @@ type resolution struct {
 	Args        []string          `json:"args"`
 }
 
-// commandsCmd groups offline discovery for agents: resolve answers "what would these
-// arguments run?" with the real parser, without credentials or network.
 func (a *app) commandsCmd() *cobra.Command {
 	c := &cobra.Command{Use: "commands", Short: "Offline command discovery for agents"}
 	c.AddCommand(&cobra.Command{Use: "resolve -- <arguments>", Short: "Show the command, effect and flags that arguments would run, without running them",
@@ -47,7 +43,6 @@ func (a *app) commandsCmd() *cobra.Command {
 			}
 			a.format = "json"
 			probe := NewRoot(strings.NewReader(""), io.Discard, io.Discard)
-			// Help, version and completion only print text: reads that touch nothing.
 			for _, arg := range args {
 				if arg == "--help" || arg == "-h" || arg == "--version" {
 					return a.print(resolution{Command: strings.TrimSpace("whatsapp " + strings.Join(words(args), " ")), Effect: "read", Flags: map[string]string{}, Args: []string{}})
