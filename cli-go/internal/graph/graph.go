@@ -1,5 +1,3 @@
-// Package graph is a minimal read-only client for the WhatsApp Business Management
-// API on Meta's Graph API. It sends GET requests only and makes no retries.
 package graph
 
 import (
@@ -13,18 +11,15 @@ import (
 	"time"
 )
 
-// DefaultVersion is the Graph API version used when none is configured.
 const DefaultVersion = "v25.0"
 
-// Client reads one WhatsApp Business Account (WABA) with one access token.
 type Client struct {
-	Base    string // https://graph.facebook.com
+	Base    string
 	Version string
 	Token   string
 	HTTP    *http.Client
 }
 
-// Error is Meta's error envelope, kept whole so callers can see code and trace id.
 type Error struct {
 	Status  int    `json:"-"`
 	Message string `json:"message"`
@@ -38,7 +33,6 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("graph API %d (code %d, subcode %d): %s [trace %s]", e.Status, e.Code, e.Subcode, e.Message, e.TraceID)
 }
 
-// Get requests path (for example "/123/phone_numbers") with query and returns the raw JSON body.
 func (c *Client) Get(ctx context.Context, path string, query url.Values) (json.RawMessage, error) {
 	if c.Token == "" {
 		return nil, fmt.Errorf("no access token: set WHATSAPP_ACCESS_TOKEN (a system user token with whatsapp_business_management)")
@@ -59,7 +53,6 @@ func (c *Client) Get(ctx context.Context, path string, query url.Values) (json.R
 	if err != nil {
 		return nil, err
 	}
-	// The token travels in a header, never in the URL, so it cannot leak into logs or errors.
 	req.Header.Set("Authorization", "Bearer "+c.Token)
 	req.Header.Set("Accept", "application/json")
 	client := c.HTTP
@@ -94,9 +87,6 @@ func (c *Client) Get(ctx context.Context, path string, query url.Values) (json.R
 	return body, nil
 }
 
-// Expression builds a Graph field expression such as
-// pricing_analytics.start(1).end(2).granularity(DAILY).dimensions(["COUNTRY"]).
-// Filters keep the order given; list values are JSON arrays of strings.
 func Expression(field string, filters []Filter) string {
 	var b strings.Builder
 	b.WriteString(field)
@@ -111,7 +101,6 @@ func Expression(field string, filters []Filter) string {
 	return b.String()
 }
 
-// Filter is one dotted filter in a field expression.
 type Filter struct {
 	Name  string
 	Value string

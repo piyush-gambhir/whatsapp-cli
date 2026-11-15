@@ -1,4 +1,3 @@
-// Command whatsapp reads a WhatsApp Business Account: numbers, templates, analytics.
 package main
 
 import (

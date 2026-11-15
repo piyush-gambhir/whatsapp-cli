@@ -1,5 +1,3 @@
-// Package cmd is the whatsapp command line. Every command is a read: this CLI has no
-// way to send a message, change a template or alter an account.
 package cmd
 
 import (
@@ -22,10 +20,8 @@ import (
 	"github.com/piyush-gambhir/whatsapp-cli/cli-go/internal/graph"
 )
 
-// clock is the current time; tests fix it.
 var clock = time.Now
 
-// osArgs is the command line without the program name; tests replace it.
 var osArgs = os.Args[1:]
 
 func executeWith(out, errOut io.Writer) int { return Execute(strings.NewReader(""), out, errOut) }
@@ -38,8 +34,6 @@ type app struct {
 	now         func() time.Time
 }
 
-// Execute runs the CLI and returns the process exit code: 0 ok, 1 usage or local
-// error, 3 an error from the Graph API, 4 the API could not be reached.
 func Execute(in io.Reader, out, errOut io.Writer) int {
 	root := NewRoot(in, out, errOut)
 	root.SetArgs(osArgs)
@@ -60,9 +54,6 @@ func Execute(in io.Reader, out, errOut io.Writer) int {
 	return 0
 }
 
-// NewRoot builds the command tree. Settings come from the environment only:
-// WHATSAPP_ACCESS_TOKEN, WHATSAPP_BUSINESS_ACCOUNT_ID, WHATSAPP_API_VERSION and,
-// for tests, WHATSAPP_GRAPH_URL.
 func NewRoot(in io.Reader, out, errOut io.Writer) *cobra.Command {
 	a := &app{out: out, errOut: errOut, now: clock, client: &graph.Client{
 		Base: os.Getenv("WHATSAPP_GRAPH_URL"), Version: os.Getenv("WHATSAPP_API_VERSION"), Token: os.Getenv("WHATSAPP_ACCESS_TOKEN")}}
@@ -88,7 +79,6 @@ func NewRoot(in io.Reader, out, errOut io.Writer) *cobra.Command {
 	root.AddCommand(&cobra.Command{Use: "version", Short: "Print build information", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error {
 		return a.print(map[string]any{"version": build.Version, "commit": build.Commit, "date": build.Date})
 	}})
-	// A group given an unknown subcommand is an error, not a help page with exit 0.
 	for _, group := range root.Commands() {
 		if group.HasSubCommands() && group.RunE == nil {
 			group.Args = cobra.NoArgs
@@ -100,8 +90,6 @@ func NewRoot(in io.Reader, out, errOut io.Writer) *cobra.Command {
 
 func (a *app) print(v any) error {
 	if raw, ok := v.(json.RawMessage); ok {
-		// Keep the response as Graph sent it (number precision, key order), except
-		// paging.next and paging.previous, whose URLs can carry the access token.
 		var envelope map[string]json.RawMessage
 		if json.Unmarshal(raw, &envelope) == nil {
 			if paging, ok := envelope["paging"]; ok {
@@ -126,7 +114,6 @@ func (a *app) print(v any) error {
 	return enc.Encode(v)
 }
 
-// replaceKey re-encodes the envelope with one key replaced; other values stay raw.
 func replaceKey(raw json.RawMessage, envelope map[string]json.RawMessage, key string, value any) json.RawMessage {
 	encoded, err := json.Marshal(value)
 	if err != nil {
@@ -140,7 +127,6 @@ func replaceKey(raw json.RawMessage, envelope map[string]json.RawMessage, key st
 	return out
 }
 
-// transportError marks a request that never got an answer from Graph.
 type transportError struct{ err error }
 
 func (e *transportError) Error() string { return "could not reach the Graph API: " + e.err.Error() }
@@ -257,7 +243,6 @@ func (a *app) templatesCmd() *cobra.Command {
 	return c
 }
 
-// window holds the shared analytics flags.
 type window struct {
 	from, to, granularity string
 	phones, countries     []string
@@ -315,8 +300,6 @@ func (a *app) analyticsCmd() *cobra.Command {
 	type metric struct {
 		use, short, field, granularity, allowed, dims string
 	}
-	// Conversation analytics are left out: conversation-based pricing ended on 2025-07-01,
-	// and Meta keeps a year of analytics, so it has no data left to read.
 	for _, m := range []metric{
 		{"messages", "Messages sent and delivered", "analytics", "DAY", "HALF_HOUR,DAY,MONTH", ""},
 		{"pricing", "Delivered messages and cost per pricing category (per-message pricing)", "pricing_analytics", "DAILY", "HALF_HOUR,DAILY,MONTHLY",
@@ -400,7 +383,6 @@ var (
 	cursorText  = regexp.MustCompile(`^[A-Za-z0-9_=-]{1,512}$`)
 )
 
-// digits normalises phone filters to the digits-only form Graph expects.
 func digits(phones []string) ([]string, error) {
 	out := make([]string, 0, len(phones))
 	for _, p := range phones {
