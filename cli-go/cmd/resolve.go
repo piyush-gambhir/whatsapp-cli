@@ -61,6 +61,9 @@ func (a *app) commandsCmd() *cobra.Command {
 			if err := target.ValidateArgs(target.Flags().Args()); err != nil {
 				return err
 			}
+			if err := probe.PersistentPreRunE(target, target.Flags().Args()); err != nil {
+				return err
+			}
 			res := resolution{Command: target.CommandPath(), Effect: "read", Flags: map[string]string{}, Args: target.Flags().Args()}
 			target.Flags().Visit(func(f *pflag.Flag) { res.Flags[f.Name] = f.Value.String() })
 			return a.print(res)
