@@ -192,6 +192,11 @@ func TestCommandsResolve(t *testing.T) {
 	if root.Execute() == nil {
 		t.Fatal("a command missing its argument resolved")
 	}
+	root = NewRoot(strings.NewReader(""), &bytes.Buffer{}, &bytes.Buffer{})
+	root.SetArgs([]string{"commands", "resolve", "--", "numbers", "list", "-o", "yaml"})
+	if root.Execute() == nil {
+		t.Fatal("an output format the real run rejects resolved")
+	}
 }
 
 func TestVersionCommandPrintsBuildInfo(t *testing.T) {
